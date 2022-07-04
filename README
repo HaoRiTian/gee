@@ -18,6 +18,7 @@ day5:
 day6:
     服务器渲染模板
         静态文件映射
+        借助 html/template 库实现渲染模板功能
 day7:
     错误恢复 Recovery()
     主要是借助 defer 和 recover()

@@ -1,16 +1,20 @@
 package gee
 
 import (
+    "html/template"
     "net/http"
+    "path"
     "strings"
 )
 
 type HandlerFunc func(ctx *Context)
 
 type Engine struct {
-    *RouterGroup // 将 Engine 抽象成 RouterGroup
-    router       *router
-    groups       []*RouterGroup
+    *RouterGroup  // 将 Engine 抽象成 RouterGroup
+    router        *router
+    groups        []*RouterGroup
+    htmlTemplates *template.Template // html template, not text template 所有的模板加载进内存
+    funcMap       template.FuncMap   // 所有的自定义模板渲染函数
 }
 
 func New() *Engine {
@@ -36,7 +40,21 @@ func (e *Engine) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
     ctx := newContext(w, r)
     ctx.handlers = middlewares
+    ctx.engine = e
     e.router.handler(ctx)
+}
+
+func (e *Engine) Run(addr string) error {
+    return http.ListenAndServe(addr, e)
+}
+
+func (e *Engine) SetFuncMap(funcMap template.FuncMap) {
+    e.funcMap = funcMap
+}
+
+func (e *Engine) LoadHTMLGlob(pattern string) {
+    // 看不懂
+    e.htmlTemplates = template.Must(template.New("").Funcs(e.funcMap).ParseGlob(pattern))
 }
 
 func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
@@ -45,10 +63,6 @@ func (g *RouterGroup) GET(pattern string, handler HandlerFunc) {
 
 func (g *RouterGroup) POST(pattern string, handler HandlerFunc) {
     g.addRouter("POST", pattern, handler)
-}
-
-func (e *Engine) Run(addr string) error {
-    return http.ListenAndServe(addr, e)
 }
 
 func (g *RouterGroup) addRouter(method, pattern string, handler HandlerFunc) {
@@ -76,4 +90,25 @@ func (g *RouterGroup) Group(prefix string) *RouterGroup {
 
 func (g *RouterGroup) Use(middlewares ...HandlerFunc) {
     g.middlewares = append(g.middlewares, middlewares...)
+}
+
+func (g *RouterGroup) Static(relativePath string, root string) {
+    handler := g.createStaticHandler(relativePath, http.Dir(root))
+    urlPattern := path.Join(relativePath, "/*filepath")
+    g.GET(urlPattern, handler)
+}
+
+func (g *RouterGroup) createStaticHandler(relativePath string, fs http.FileSystem) HandlerFunc {
+    absPath := path.Join(g.prefix, relativePath)
+    // 需要了解一下
+    fileServer := http.StripPrefix(absPath, http.FileServer(fs))
+    return func(ctx *Context) {
+        file := ctx.Param("filepath")
+        if _, err := fs.Open(file); err != nil {
+            ctx.Status(http.StatusNotFound)
+            return
+        }
+
+        fileServer.ServeHTTP(ctx.Writer, ctx.Req)
+    }
 }
