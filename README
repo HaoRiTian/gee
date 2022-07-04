@@ -1,0 +1,23 @@
+2022.7.4-2022.7.6
+day1:
+    基本结构和对请求的简单处理
+    请求处理函数堆入Engine的map中
+day2:
+    聚合Context
+    分出 Engine-Router-Context 三层，从收到请求到给予回复相关的属性都聚合到Context中
+day3:
+    使用前缀树实现动态路由
+    数据结构和算法
+day4:
+    实现分组
+        抽象出 RouterGroup 作为分组的结构体，内部有指针指向产生其的 Engine
+        Engine “继承” RouterGroup，因此对 从 Engine实例 到 RouterGroup实例 的数据操作不必做区分
+day5:
+    中间件设计
+    可对不同路径路由设置中间件，生成Context时将应执行的中间件操作都取到
+day6:
+    服务器渲染模板
+        静态文件映射
+day7:
+    错误恢复 Recovery()
+    主要是借助 defer 和 recover()
